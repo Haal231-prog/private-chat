@@ -3,84 +3,27 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Persistent Multi-User Chat</title>
+<title>Private Multi-User Chat</title>
 <style>
 body, html {margin:0;padding:0;height:100%;font-family:Arial,sans-serif;font-size:16px;}
 #login, #chat{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;width:100%;}
-
-/* LOGIN PAGE */
-#login{
-  background: linear-gradient(135deg,#00a000,#ff0000,#ffcc00,#0000ff,#ff00ff);
-  background-size: 400% 400%;
-  animation: rainbowBG 15s ease infinite;
-  flex-direction: column;
-}
-@keyframes rainbowBG{
-  0%{background-position:0% 50%}
-  50%{background-position:100% 50%}
-  100%{background-position:0% 50%}
-}
-#login input, #login button{
-  padding:12px;margin:8px;font-size:16px;width:80%;max-width:300px;border-radius:5px;border:1px solid #ccc;
-}
-
-/* CHAT PAGE */
-#chat{
-  display:none;
-  height:100%;
-  width:100%;
-  flex-direction:column;
-  background: #007BFF;
-}
-#userList{
-  background:#ffffffaa;
-  padding:5px 10px;
-  border-radius:5px;
-  margin:10px auto 5px auto;
-  width:95%;
-  max-width:600px;
-  text-align:center;
-  font-weight:bold;
-}
-#messages{
-  flex:1;
-  overflow-y:auto;
-  width:95%;
-  max-width:600px;
-  margin:0 auto 10px auto;
-  padding:10px;
-  background:rgba(240,240,240,0.8);
-  border-radius:10px;
-  display:flex;
-  flex-direction:column;
-}
-.message{
-  display:flex;
-  margin:5px;
-  max-width:80%;
-  align-items:flex-end;
-}
-.bubble{
-  padding:10px;
-  border-radius:20px;
-  word-wrap:break-word;
-  font-size:16px;
-  position:relative;
-  line-height:1.4;
-}
+#login{background: linear-gradient(135deg,#00a000,#ff0000,#ffcc00,#0000ff,#ff00ff);background-size: 400% 400%;animation: rainbowBG 15s ease infinite;flex-direction: column;}
+@keyframes rainbowBG{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+#login input,#login button{padding:12px;margin:8px;font-size:16px;width:80%;max-width:300px;border-radius:5px;border:1px solid #ccc;}
+#chat{display:none;height:100%;width:100%;flex-direction:column;background:#007BFF;}
+#messages{flex:1;overflow-y:auto;width:95%;max-width:600px;margin:10px auto;padding:10px;background:rgba(240,240,240,0.8);border-radius:10px;display:flex;flex-direction:column;}
+.message{display:flex;margin:5px;max-width:80%;align-items:flex-end;}
+.bubble{padding:10px;border-radius:20px;word-wrap:break-word;font-size:16px;position:relative;line-height:1.4;}
 .sender{justify-content:flex-end;align-self:flex-end;}
 .sender .bubble{background:#dcf8c6;margin-left:5px;border-top-right-radius:0;}
 .receiver{justify-content:flex-start;align-self:flex-start;}
 .receiver .bubble{background:#ffb6c1;margin-right:5px;border-top-left-radius:0;}
-.avatar-circle{
-  width:35px;height:35px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;margin:0 5px;flex-shrink:0;
-  background: #ccc;
-}
-.avatar-sender{color: green;}
-.avatar-receiver{color: pink;}
+.avatar-circle{width:35px;height:35px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;margin:0 5px;flex-shrink:0;background:#ccc;}
+.avatar-sender{color:green;}
+.avatar-receiver{color:pink;}
 #chat-controls{display:flex;justify-content:center;width:95%;max-width:600px;margin-bottom:10px;}
 #msg{flex:1;padding:10px;font-size:16px;border-radius:20px;border:1px solid #ccc;}
-#recordBtn, #sendBtn{padding:10px;font-size:16px;margin-left:5px;border-radius:20px;}
+#recordBtn,#sendBtn{padding:10px;font-size:16px;margin-left:5px;border-radius:20px;}
 audio{display:block;margin-top:5px;max-width:100%;border-radius:10px;}
 </style>
 </head>
@@ -96,18 +39,16 @@ audio{display:block;margin-top:5px;max-width:100%;border-radius:10px;}
 
 <!-- CHAT -->
 <div id="chat">
-<div id="userList">Active Users: </div>
 <div id="messages"></div>
 <div id="chat-controls">
 <input type="text" id="msg" placeholder="Type a message" onkeydown="if(event.key==='Enter'){sendMessage()}">
 <button id="sendBtn" onclick="sendMessage()">Send</button>
-<button id="recordBtn">🎤 Record</button>
+<button id="recordBtn">🎤</button>
 </div>
 </div>
 
 <audio id="notifSound" src="https://www.soundjay.com/button/sounds/button-10.mp3" preload="auto"></audio>
 
-<!-- FIREBASE SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
@@ -122,27 +63,26 @@ const firebaseConfig = {
   appId: "1:487734288517:web:a54583ab19b2dcda5509ec",
   measurementId: "G-RBF3N8ELYE"
 };
-
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 // ===== GLOBALS =====
-const PIN = "280999"; // Shared PIN
-let currentUser="";
-let mediaRecorder, audioChunks=[];
+const PIN = "280999";
+let currentUser = "";
+let mediaRecorder, audioChunks = [];
 let lastActivity = Date.now();
-const CHAT_KEY = "shared_chat"; // Single chat key for everyone
+const CHAT_KEY = "shared_chat";
 
 // ===== LOGIN FUNCTION =====
 function login(){
-  const n=document.getElementById("name").value.trim();
-  const p=document.getElementById("pin").value.trim();
-  if(n==="" || p===""){ alert("Enter name and PIN"); return; }
-  if(p!==PIN){ alert("Wrong PIN"); return; }
+  const n = document.getElementById("name").value.trim();
+  const p = document.getElementById("pin").value.trim();
+  if(n === "" || p === "") { alert("Enter name and PIN"); return; }
+  if(p !== PIN){ alert("Wrong PIN"); return; }
   currentUser = n;
-  document.getElementById("login").style.display="none";
-  document.getElementById("chat").style.display="flex";
-  listenMessages();       // Load all previous messages
+  document.getElementById("login").style.display = "none";
+  document.getElementById("chat").style.display = "flex";
+  listenMessages();
   requestNotificationPermission();
   trackInactivity();
 }
@@ -150,38 +90,35 @@ function login(){
 // ===== TRACK INACTIVITY =====
 function trackInactivity(){
   setInterval(()=>{
-    if(Date.now()-lastActivity>24*60*60*1000){
-      alert("Logged out due to inactivity");
-      location.reload();
-    }
+    if(Date.now() - lastActivity > 24*60*60*1000){ location.reload(); }
   },60000);
 }
 document.addEventListener("keydown",()=>{lastActivity=Date.now();});
 document.addEventListener("mousemove",()=>{lastActivity=Date.now();});
 
-// ===== ADD MESSAGE TO DOM =====
+// ===== ADD MESSAGE =====
 function addMessage(name, content, type, isAudio=false){
-  const messages=document.getElementById("messages");
-  const div=document.createElement("div");
-  div.className="message "+type;
+  const messages = document.getElementById("messages");
+  const div = document.createElement("div");
+  div.className = "message " + type;
 
-  const avatarCircle=document.createElement("div");
-  avatarCircle.className="avatar-circle "+(type==="sender"?"avatar-sender":"avatar-receiver");
-  avatarCircle.textContent=name.charAt(0).toUpperCase();
+  const avatarCircle = document.createElement("div");
+  avatarCircle.className = "avatar-circle " + (type === "sender" ? "avatar-sender" : "avatar-receiver");
+  avatarCircle.textContent = name.charAt(0).toUpperCase(); // Only first letter
 
-  const bubble=document.createElement("div");
-  bubble.className="bubble";
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
 
   if(isAudio){
-    const audio=document.createElement("audio");
-    audio.src=content;
-    audio.controls=true;
+    const audio = document.createElement("audio");
+    audio.src = content;
+    audio.controls = true;
     bubble.appendChild(audio);
   } else {
-    bubble.innerHTML=`<div class="name">${name}</div>${content}`;
+    bubble.textContent = content; // Only show message, no name
   }
 
-  if(type==="sender"){
+  if(type === "sender"){
     div.appendChild(bubble);
     div.appendChild(avatarCircle);
   } else {
@@ -190,20 +127,15 @@ function addMessage(name, content, type, isAudio=false){
   }
 
   messages.appendChild(div);
-  messages.scrollTop=messages.scrollHeight;
+  messages.scrollTop = messages.scrollHeight;
 
-  if(type==="receiver") document.getElementById("notifSound").play();
-  if(type==="receiver" && Notification.permission==="granted"){
-    new Notification(`New message from ${name}`,{body: content});
-  }
-
-  updateUserList();
+  if(type === "receiver") document.getElementById("notifSound").play();
 }
 
-// ===== SEND TEXT MESSAGE =====
+// ===== SEND TEXT =====
 function sendMessage(){
-  const msg=document.getElementById("msg").value.trim();
-  if(msg==="") return;
+  const msg = document.getElementById("msg").value.trim();
+  if(msg === "") return;
   db.ref(CHAT_KEY).push({
     user: currentUser,
     name: currentUser,
@@ -211,22 +143,22 @@ function sendMessage(){
     content: msg,
     timestamp: Date.now()
   });
-  document.getElementById("msg").value="";
-  lastActivity=Date.now();
+  document.getElementById("msg").value = "";
+  lastActivity = Date.now();
 }
 
-// ===== RECORD AUDIO MESSAGE =====
-const recordBtn=document.getElementById("recordBtn");
-recordBtn.onclick=async ()=>{
-  if(recordBtn.textContent==="🎤 Record"){
+// ===== RECORD AUDIO =====
+const recordBtn = document.getElementById("recordBtn");
+recordBtn.onclick = async () => {
+  if(!mediaRecorder || mediaRecorder.state === "inactive"){
     const stream = await navigator.mediaDevices.getUserMedia({audio:true});
     mediaRecorder = new MediaRecorder(stream);
-    audioChunks=[];
+    audioChunks = [];
     mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-    mediaRecorder.onstop = ()=>{
-      const blob = new Blob(audioChunks,{type:"audio/webm"});
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(audioChunks, {type:"audio/webm"});
       const reader = new FileReader();
-      reader.onload=()=>{
+      reader.onload = () => {
         db.ref(CHAT_KEY).push({
           user: currentUser,
           name: currentUser,
@@ -238,38 +170,23 @@ recordBtn.onclick=async ()=>{
       reader.readAsDataURL(blob);
     };
     mediaRecorder.start();
-    recordBtn.textContent="⏹ Stop";
-  } else {
+  } else if(mediaRecorder.state === "recording") {
     mediaRecorder.stop();
-    recordBtn.textContent="🎤 Record";
   }
 }
 
 // ===== LISTEN TO ALL MESSAGES =====
 function listenMessages(){
-  db.ref(CHAT_KEY).orderByChild("timestamp").on("child_added", snapshot=>{
+  db.ref(CHAT_KEY).orderByChild("timestamp").on("child_added", snapshot => {
     const msg = snapshot.val();
-    const type = (msg.user===currentUser)?"sender":"receiver";
-    addMessage(msg.name, msg.content, type, msg.type==="audio");
+    const type = (msg.user === currentUser) ? "sender" : "receiver";
+    addMessage(msg.name, msg.content, type, msg.type === "audio");
   });
 }
 
-// ===== UPDATE ACTIVE USERS =====
-function updateUserList(){
-  db.ref(CHAT_KEY).once("value", snapshot => {
-    const users = new Set();
-    snapshot.forEach(msgSnap=>{
-      users.add(msgSnap.val().name);
-    });
-    document.getElementById("userList").innerHTML = "Active Users: " + Array.from(users).join(", ");
-  });
-}
-
-// ===== BROWSER NOTIFICATIONS =====
+// ===== NOTIFICATIONS =====
 function requestNotificationPermission(){
-  if("Notification" in window){
-    Notification.requestPermission();
-  }
+  if("Notification" in window) Notification.requestPermission();
 }
 </script>
 </body>
