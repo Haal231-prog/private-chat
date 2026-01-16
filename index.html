@@ -29,17 +29,16 @@
 <script>
 const USER = "Excel@123";
 const PASS = "Microsoft@123";
-let loggedInDevices = 0;
 
 function login() {
   const u = document.getElementById("user").value;
   const p = document.getElementById("pass").value;
-  if(u===USER && p===PASS && loggedInDevices<2){
-    loggedInDevices++;
-    document.getElementById("login").style.display="none";
-    document.getElementById("chat").style.display="block";
+
+  if(u === USER && p === PASS){
+    document.getElementById("login").style.display = "none";
+    document.getElementById("chat").style.display = "block";
   } else {
-    alert("Access denied or 2 devices already logged in");
+    alert("Access denied: wrong User ID or Password");
   }
 }
 
@@ -48,13 +47,10 @@ function send() {
   const div = document.createElement("div");
   div.textContent = msg;
   document.getElementById("messages").appendChild(div);
-  document.getElementById("msg").value="";
+  document.getElementById("msg").value = "";
 }
 
 function startCall() {
   alert("Voice call works with browser WebRTC – both users must open this page");
 }
 </script>
-
-</body>
-</html>
