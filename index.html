@@ -3,13 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Private 2-User Chat</title>
+<title>Persistent Multi-User Chat</title>
 <style>
-/* Basic layout */
 body, html {margin:0;padding:0;height:100%;font-family:Arial,sans-serif;font-size:16px;}
 #login, #chat{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;width:100%;}
 
-/* LOGIN PAGE: premium green + rainbow gradient */
+/* LOGIN PAGE */
 #login{
   background: linear-gradient(135deg,#00a000,#ff0000,#ffcc00,#0000ff,#ff00ff);
   background-size: 400% 400%;
@@ -31,7 +30,7 @@ body, html {margin:0;padding:0;height:100%;font-family:Arial,sans-serif;font-siz
   height:100%;
   width:100%;
   flex-direction:column;
-  background: #007BFF; /* Solid blue wallpaper */
+  background: #007BFF;
 }
 #userList{
   background:#ffffffaa;
@@ -91,7 +90,7 @@ audio{display:block;margin-top:5px;max-width:100%;border-radius:10px;}
 <div id="login">
 <h2>Private Login</h2>
 <input id="name" placeholder="Your Name (Mandatory)">
-<input id="pin" placeholder="Enter Pin" type="password">
+<input id="pin" placeholder="Enter PIN" type="password">
 <button onclick="login()">Login</button>
 </div>
 
@@ -106,15 +105,14 @@ audio{display:block;margin-top:5px;max-width:100%;border-radius:10px;}
 </div>
 </div>
 
-<!-- Knock Knock notification sound -->
 <audio id="notifSound" src="https://www.soundjay.com/button/sounds/button-10.mp3" preload="auto"></audio>
 
-<!-- FIREBASE SDKs -->
+<!-- FIREBASE SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
-// ===== FIREBASE CONFIG (UNCHANGED) =====
+// ===== FIREBASE CONFIG =====
 const firebaseConfig = {
   apiKey: "AIzaSyB44cXr29RuwC95yI87FGn1lZnPVKMozRU",
   authDomain: "pvtapp-4d511.firebaseapp.com",
@@ -128,29 +126,31 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// ===== LOGIN =====
-const PIN = "280999"; // Universal pin for all users
+// ===== GLOBALS =====
+const PIN = "280999"; // Shared PIN
 let currentUser="";
 let mediaRecorder, audioChunks=[];
 let lastActivity = Date.now();
+const CHAT_KEY = "shared_chat"; // Single chat key for everyone
 
+// ===== LOGIN FUNCTION =====
 function login(){
   const n=document.getElementById("name").value.trim();
   const p=document.getElementById("pin").value.trim();
-  if(n === "" || p==="") { alert("Please enter your name and pin."); return; }
-  if(p !== PIN){ alert("Wrong Pin!"); return; }
+  if(n==="" || p===""){ alert("Enter name and PIN"); return; }
+  if(p!==PIN){ alert("Wrong PIN"); return; }
   currentUser = n;
   document.getElementById("login").style.display="none";
   document.getElementById("chat").style.display="flex";
-  listenMessages();
+  listenMessages();       // Load all previous messages
   requestNotificationPermission();
   trackInactivity();
 }
 
-// ===== INACTIVITY LOGOUT 24 HRS =====
+// ===== TRACK INACTIVITY =====
 function trackInactivity(){
   setInterval(()=>{
-    if(Date.now() - lastActivity > 24*60*60*1000){
+    if(Date.now()-lastActivity>24*60*60*1000){
       alert("Logged out due to inactivity");
       location.reload();
     }
@@ -159,7 +159,7 @@ function trackInactivity(){
 document.addEventListener("keydown",()=>{lastActivity=Date.now();});
 document.addEventListener("mousemove",()=>{lastActivity=Date.now();});
 
-// ===== ADD MESSAGE WITH INITIAL LETTERS =====
+// ===== ADD MESSAGE TO DOM =====
 function addMessage(name, content, type, isAudio=false){
   const messages=document.getElementById("messages");
   const div=document.createElement("div");
@@ -171,6 +171,7 @@ function addMessage(name, content, type, isAudio=false){
 
   const bubble=document.createElement("div");
   bubble.className="bubble";
+
   if(isAudio){
     const audio=document.createElement("audio");
     audio.src=content;
@@ -192,8 +193,6 @@ function addMessage(name, content, type, isAudio=false){
   messages.scrollTop=messages.scrollHeight;
 
   if(type==="receiver") document.getElementById("notifSound").play();
-
-  // Browser notifications
   if(type==="receiver" && Notification.permission==="granted"){
     new Notification(`New message from ${name}`,{body: content});
   }
@@ -201,28 +200,40 @@ function addMessage(name, content, type, isAudio=false){
   updateUserList();
 }
 
-// ===== SEND TEXT =====
+// ===== SEND TEXT MESSAGE =====
 function sendMessage(){
   const msg=document.getElementById("msg").value.trim();
   if(msg==="") return;
-  db.ref("messages").push({user:currentUser,name:currentUser,type:"text",content:msg,timestamp:Date.now()});
+  db.ref(CHAT_KEY).push({
+    user: currentUser,
+    name: currentUser,
+    type: "text",
+    content: msg,
+    timestamp: Date.now()
+  });
   document.getElementById("msg").value="";
-  lastActivity = Date.now();
+  lastActivity=Date.now();
 }
 
-// ===== VOICE RECORDING =====
+// ===== RECORD AUDIO MESSAGE =====
 const recordBtn=document.getElementById("recordBtn");
 recordBtn.onclick=async ()=>{
   if(recordBtn.textContent==="🎤 Record"){
-    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
-    mediaRecorder=new MediaRecorder(stream);
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    mediaRecorder = new MediaRecorder(stream);
     audioChunks=[];
-    mediaRecorder.ondataavailable=e=>audioChunks.push(e.data);
-    mediaRecorder.onstop=()=>{
-      const blob=new Blob(audioChunks,{type:"audio/webm"});
-      const reader=new FileReader();
+    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+    mediaRecorder.onstop = ()=>{
+      const blob = new Blob(audioChunks,{type:"audio/webm"});
+      const reader = new FileReader();
       reader.onload=()=>{
-        db.ref("messages").push({user:currentUser,name:currentUser,type:"audio",content:reader.result,timestamp:Date.now()});
+        db.ref(CHAT_KEY).push({
+          user: currentUser,
+          name: currentUser,
+          type: "audio",
+          content: reader.result,
+          timestamp: Date.now()
+        });
       };
       reader.readAsDataURL(blob);
     };
@@ -234,28 +245,27 @@ recordBtn.onclick=async ()=>{
   }
 }
 
-// ===== REAL-TIME LISTENER =====
+// ===== LISTEN TO ALL MESSAGES =====
 function listenMessages(){
-  db.ref("messages").on("child_added", snapshot=>{
-    const msg=snapshot.val();
-    const type=(msg.user===currentUser)?"sender":"receiver";
-    addMessage(msg.name,msg.content,type,msg.type==="audio");
+  db.ref(CHAT_KEY).orderByChild("timestamp").on("child_added", snapshot=>{
+    const msg = snapshot.val();
+    const type = (msg.user===currentUser)?"sender":"receiver";
+    addMessage(msg.name, msg.content, type, msg.type==="audio");
   });
 }
 
-// ===== UPDATE ACTIVE USER LIST =====
+// ===== UPDATE ACTIVE USERS =====
 function updateUserList(){
-  const userListDiv=document.getElementById("userList");
-  db.ref("messages").once("value", snapshot => {
+  db.ref(CHAT_KEY).once("value", snapshot => {
     const users = new Set();
-    snapshot.forEach(msgSnap => {
+    snapshot.forEach(msgSnap=>{
       users.add(msgSnap.val().name);
     });
-    userListDiv.innerHTML = "Active Users: " + Array.from(users).join(", ");
+    document.getElementById("userList").innerHTML = "Active Users: " + Array.from(users).join(", ");
   });
 }
 
-// ===== REQUEST BROWSER NOTIFICATION =====
+// ===== BROWSER NOTIFICATIONS =====
 function requestNotificationPermission(){
   if("Notification" in window){
     Notification.requestPermission();
