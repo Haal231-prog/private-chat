@@ -81,9 +81,8 @@ audio{display:block;margin-top:5px;max-width:100%;border-radius:10px;}
 <!-- LOGIN -->
 <div id="login">
 <h2>Private Login</h2>
-<input id="user" placeholder="User ID">
-<input id="pass" placeholder="Password" type="password">
-<input id="name" placeholder="Your Name (Optional)">
+<input id="name" placeholder="Your Name (Mandatory)">
+<input id="pin" placeholder="Enter Pin" type="password">
 <button onclick="login()">Login</button>
 </div>
 
@@ -106,9 +105,6 @@ audio{display:block;margin-top:5px;max-width:100%;border-radius:10px;}
 
 <script>
 // ===== FIREBASE CONFIG (UNCHANGED) =====
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-
 const firebaseConfig = {
   apiKey: "AIzaSyB44cXr29RuwC95yI87FGn1lZnPVKMozRU",
   authDomain: "pvtapp-4d511.firebaseapp.com",
@@ -119,35 +115,26 @@ const firebaseConfig = {
   measurementId: "G-RBF3N8ELYE"
 };
 
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
-// ======================================================
-
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 // ===== LOGIN =====
-const USER="Excel@123";
-const PASS="Microsoft@123";
-let currentUser="", currentName="";
+const PIN = "280999"; // Universal pin for all users
+let currentUser="";
 let mediaRecorder, audioChunks=[];
 let lastActivity = Date.now();
 
 function login(){
-  const u=document.getElementById("user").value;
-  const p=document.getElementById("pass").value;
-  const n=document.getElementById("name").value || "Me";
-  if(u===USER && p===PASS){
-    currentUser=u;
-    currentName=n;
-    document.getElementById("login").style.display="none";
-    document.getElementById("chat").style.display="flex";
-    listenMessages();
-    requestNotificationPermission();
-    trackInactivity();
-  } else {
-    alert("Access Denied: wrong User ID or Password");
-  }
+  const n=document.getElementById("name").value.trim();
+  const p=document.getElementById("pin").value.trim();
+  if(n === "" || p==="") { alert("Please enter your name and pin."); return; }
+  if(p !== PIN){ alert("Wrong Pin!"); return; }
+  currentUser = n;
+  document.getElementById("login").style.display="none";
+  document.getElementById("chat").style.display="flex";
+  listenMessages();
+  requestNotificationPermission();
+  trackInactivity();
 }
 
 // ===== INACTIVITY LOGOUT 24 HRS =====
@@ -206,7 +193,7 @@ function addMessage(name, content, type, isAudio=false){
 function sendMessage(){
   const msg=document.getElementById("msg").value.trim();
   if(msg==="") return;
-  db.ref("messages").push({user:currentUser,name:currentName,type:"text",content:msg,timestamp:Date.now()});
+  db.ref("messages").push({user:currentUser,name:currentUser,type:"text",content:msg,timestamp:Date.now()});
   document.getElementById("msg").value="";
   lastActivity = Date.now();
 }
@@ -223,7 +210,7 @@ recordBtn.onclick=async ()=>{
       const blob=new Blob(audioChunks,{type:"audio/webm"});
       const reader=new FileReader();
       reader.onload=()=>{
-        db.ref("messages").push({user:currentUser,name:currentName,type:"audio",content:reader.result,timestamp:Date.now()});
+        db.ref("messages").push({user:currentUser,name:currentUser,type:"audio",content:reader.result,timestamp:Date.now()});
       };
       reader.readAsDataURL(blob);
     };
