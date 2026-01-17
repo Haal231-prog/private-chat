@@ -16,7 +16,7 @@ body,html{margin:0;padding:0;height:100%;font-family:Arial}
 .message{display:flex;margin:5px;max-width:80%}
 .sender{align-self:flex-end;justify-content:flex-end}
 .receiver{align-self:flex-start}
-.bubble{padding:10px;border-radius:15px;position:relative}
+.bubble{padding:10px;border-radius:15px}
 .sender .bubble{background:#dcf8c6}
 .receiver .bubble{background:#ffb6c1}
 .avatar{width:30px;height:30px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;margin:0 5px}
@@ -32,20 +32,20 @@ button{padding:10px;margin-left:5px}
 
 <!-- LOGIN -->
 <div id="login">
-<h2>Private Login</h2>
-<input id="name" placeholder="Your Name">
-<input id="pin" placeholder="PIN" type="password">
-<button onclick="login()">Login</button>
+  <h2>Private Login</h2>
+  <input id="name" placeholder="Your Name">
+  <input id="pin" placeholder="PIN" type="password">
+  <button onclick="login()">Login</button>
 </div>
 
 <!-- CHAT -->
 <div id="chat">
-<div id="messages"></div>
-<div id="chat-controls">
-<input id="msg" placeholder="Type a message">
-<button onclick="sendMessage()">Send</button>
-<button id="recordBtn">🎤 Record</button>
-</div>
+  <div id="messages"></div>
+  <div id="chat-controls">
+    <input id="msg" placeholder="Type a message">
+    <button onclick="sendMessage()">Send</button>
+    <button id="recordBtn">🎤 Record</button>
+  </div>
 </div>
 
 <audio id="notifSound" src="https://www.soundjay.com/button/sounds/button-10.mp3"></audio>
@@ -56,10 +56,10 @@ button{padding:10px;margin-left:5px}
 <script>
 // ===== FIREBASE =====
 const firebaseConfig={
-apiKey:"AIzaSyB44cXr29RuwC95yI87FGn1lZnPVKMozRU",
-authDomain:"pvtapp-4d511.firebaseapp.com",
-databaseURL:"https://pvtapp-4d511-default-rtdb.firebaseio.com",
-projectId:"pvtapp-4d511"
+  apiKey:"AIzaSyB44cXr29RuwC95yI87FGn1lZnPVKMozRU",
+  authDomain:"pvtapp-4d511.firebaseapp.com",
+  databaseURL:"https://pvtapp-4d511-default-rtdb.firebaseio.com",
+  projectId:"pvtapp-4d511"
 };
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
@@ -67,148 +67,167 @@ const db=firebase.database();
 // ===== GLOBALS =====
 const PIN="280999";
 const CHAT_KEY="shared_chat";
-let currentUser="",replyTo=null;
+let currentUser="";
+let replyTo=null;
 let mediaRecorder,audioChunks=[];
 
-// ===== LOGIN =====
+// ===== LOGIN (YOUR FUNCTION – SAFE) =====
 function login(){
-if(name.value && pin.value===PIN){
-currentUser=name.value;
-login.style.display="none";
-chat.style.display="flex";
-listenMessages();
-}else alert("Invalid login");
+  const nameInput = document.getElementById("name");
+  const pinInput = document.getElementById("pin");
+  const loginDiv = document.getElementById("login");
+  const chatDiv = document.getElementById("chat");
+
+  if(nameInput.value.trim() === ""){
+    alert("Enter name");
+    return;
+  }
+
+  if(pinInput.value !== PIN){
+    alert("Invalid PIN");
+    return;
+  }
+
+  currentUser = nameInput.value.trim();
+  loginDiv.style.display = "none";
+  chatDiv.style.display = "flex";
+  listenMessages();
 }
 
 // ===== BASE64 → BLOB =====
 function base64ToBlob(base64){
-const parts=base64.split(',');
-const byteString=atob(parts[1]);
-const mime=parts[0].split(':')[1].split(';')[0];
-const ab=new ArrayBuffer(byteString.length);
-const ia=new Uint8Array(ab);
-for(let i=0;i<byteString.length;i++)ia[i]=byteString.charCodeAt(i);
-return new Blob([ab],{type:mime});
+  const parts=base64.split(',');
+  const byteString=atob(parts[1]);
+  const mime=parts[0].split(':')[1].split(';')[0];
+  const ab=new ArrayBuffer(byteString.length);
+  const ia=new Uint8Array(ab);
+  for(let i=0;i<byteString.length;i++)ia[i]=byteString.charCodeAt(i);
+  return new Blob([ab],{type:mime});
 }
 
 // ===== ADD MESSAGE =====
 function addMessage(msg){
-const wrap=document.createElement("div");
-wrap.className="message "+(msg.user===currentUser?"sender":"receiver");
+  const wrap=document.createElement("div");
+  wrap.className="message "+(msg.user===currentUser?"sender":"receiver");
 
-const avatar=document.createElement("div");
-avatar.className="avatar";
-avatar.textContent=msg.name[0].toUpperCase();
+  const avatar=document.createElement("div");
+  avatar.className="avatar";
+  avatar.textContent=msg.name[0].toUpperCase();
 
-const bubble=document.createElement("div");
-bubble.className="bubble";
+  const bubble=document.createElement("div");
+  bubble.className="bubble";
 
-if(msg.reply){
-const r=document.createElement("div");
-r.className="reply-box";
-r.textContent=msg.reply;
-bubble.appendChild(r);
-}
+  if(msg.reply){
+    const r=document.createElement("div");
+    r.className="reply-box";
+    r.textContent=msg.reply;
+    bubble.appendChild(r);
+  }
 
-if(msg.type==="audio"){
-const blob=base64ToBlob(msg.content);
-const url=URL.createObjectURL(blob);
-const audio=document.createElement("audio");
-audio.src=url;
-audio.controls=true;
-const dl=document.createElement("a");
-dl.href=url;
-dl.download="voice-message.webm";
-dl.textContent="⬇ Download";
-bubble.append(audio,dl);
-}else{
-bubble.append(msg.content);
-}
+  if(msg.type==="audio"){
+    const blob=base64ToBlob(msg.content);
+    const url=URL.createObjectURL(blob);
+    const audio=document.createElement("audio");
+    audio.src=url;
+    audio.controls=true;
+    const dl=document.createElement("a");
+    dl.href=url;
+    dl.download="voice-message.webm";
+    dl.textContent="⬇ Download";
+    bubble.append(audio,dl);
+  }else{
+    bubble.append(msg.content);
+  }
 
-bubble.onclick=()=>{
-replyTo=msg.content;
-msg.placeholder="Replying to message…";
-};
+  bubble.onclick=()=>{
+    replyTo=msg.content;
+    document.getElementById("msg").placeholder="Replying to message…";
+  };
 
-const time=document.createElement("div");
-time.className="time";
-time.textContent=new Date(msg.timestamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-bubble.appendChild(time);
+  const time=document.createElement("div");
+  time.className="time";
+  time.textContent=new Date(msg.timestamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  bubble.appendChild(time);
 
-if(msg.user===currentUser){
-const st=document.createElement("div");
-st.className="status";
-st.textContent=msg.status==="read"?"✔✔ Read":"✔ Delivered";
-bubble.appendChild(st);
-wrap.append(bubble,avatar);
-}else{
-wrap.append(avatar,bubble);
-notifSound.play();
-}
+  if(msg.user===currentUser){
+    const st=document.createElement("div");
+    st.className="status";
+    st.textContent=msg.status==="read"?"✔✔ Read":"✔ Delivered";
+    bubble.appendChild(st);
+    wrap.append(bubble,avatar);
+  }else{
+    wrap.append(avatar,bubble);
+    document.getElementById("notifSound").play();
+  }
 
-messages.appendChild(wrap);
-messages.scrollTop=messages.scrollHeight;
+  const messages=document.getElementById("messages");
+  messages.appendChild(wrap);
+  messages.scrollTop=messages.scrollHeight;
 }
 
 // ===== SEND TEXT =====
 function sendMessage(){
-if(!msg.value)return;
-db.ref(CHAT_KEY).push({
-user:currentUser,
-name:currentUser,
-type:"text",
-content:msg.value,
-reply:replyTo,
-timestamp:Date.now(),
-status:"sent"
-});
-replyTo=null;
-msg.placeholder="Type a message";
-msg.value="";
+  const msgInput=document.getElementById("msg");
+  if(!msgInput.value)return;
+
+  db.ref(CHAT_KEY).push({
+    user:currentUser,
+    name:currentUser,
+    type:"text",
+    content:msgInput.value,
+    reply:replyTo,
+    timestamp:Date.now(),
+    status:"sent"
+  });
+
+  replyTo=null;
+  msgInput.placeholder="Type a message";
+  msgInput.value="";
 }
 
 // ===== RECORD / SEND AUDIO =====
 const recordBtn=document.getElementById("recordBtn");
 
 recordBtn.onclick=async()=>{
-if(!mediaRecorder || mediaRecorder.state==="inactive"){
-const stream=await navigator.mediaDevices.getUserMedia({audio:true});
-mediaRecorder=new MediaRecorder(stream);
-audioChunks=[];
-mediaRecorder.ondataavailable=e=>audioChunks.push(e.data);
+  if(!mediaRecorder||mediaRecorder.state==="inactive"){
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    mediaRecorder=new MediaRecorder(stream);
+    audioChunks=[];
+    mediaRecorder.ondataavailable=e=>audioChunks.push(e.data);
 
-mediaRecorder.onstop=()=>{
-const blob=new Blob(audioChunks,{type:"audio/webm"});
-const reader=new FileReader();
-reader.onload=()=>db.ref(CHAT_KEY).push({
-user:currentUser,
-name:currentUser,
-type:"audio",
-content:reader.result,
-timestamp:Date.now(),
-status:"sent"
-});
-reader.readAsDataURL(blob);
-recordBtn.textContent="🎤 Record";
-};
+    mediaRecorder.onstop=()=>{
+      const blob=new Blob(audioChunks,{type:"audio/webm"});
+      const reader=new FileReader();
+      reader.onload=()=>db.ref(CHAT_KEY).push({
+        user:currentUser,
+        name:currentUser,
+        type:"audio",
+        content:reader.result,
+        timestamp:Date.now(),
+        status:"sent"
+      });
+      reader.readAsDataURL(blob);
+      recordBtn.textContent="🎤 Record";
+    };
 
-mediaRecorder.start();
-recordBtn.textContent="📤 Send";
-}else{
-mediaRecorder.stop();
-}
+    mediaRecorder.start();
+    recordBtn.textContent="📤 Send";
+  }else{
+    mediaRecorder.stop();
+  }
 };
 
 // ===== LISTEN =====
 function listenMessages(){
-db.ref(CHAT_KEY).on("child_added",snap=>{
-const msg=snap.val();
-if(msg.user!==currentUser && msg.status!=="read"){
-snap.ref.update({status:"read"});
-}
-addMessage(msg);
-});
+  db.ref(CHAT_KEY).on("child_added",snap=>{
+    const msg=snap.val();
+    if(msg.user!==currentUser && msg.status!=="read"){
+      snap.ref.update({status:"read"});
+    }
+    addMessage(msg);
+  });
 }
 </script>
+
 </body>
 </html>
