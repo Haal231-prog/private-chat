@@ -3,78 +3,83 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Private Chat</title>
+<title>Private Multi-User Chat</title>
 
 <style>
-body,html{margin:0;height:100%;font-family:Arial}
-#login,#chat{height:100%;display:flex;flex-direction:column}
-#login{justify-content:center;align-items:center;background:#222;color:#fff}
-#login input,#login button{padding:10px;margin:6px;width:80%;max-width:300px}
+body, html {margin:0;padding:0;height:100%;font-family:Arial,sans-serif;font-size:16px;}
+#login, #chat{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;width:100%;}
+#login{background: linear-gradient(135deg,#00a000,#ff0000,#ffcc00,#0000ff,#ff00ff);background-size: 400% 400%;animation: rainbowBG 15s ease infinite;}
+@keyframes rainbowBG{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+#login input,#login button{padding:12px;margin:8px;font-size:16px;width:80%;max-width:300px;border-radius:5px;border:1px solid #ccc;}
 
-#chat{display:none;background:#0a6cff}
+#chat{display:none;height:100%;width:100%;flex-direction:column;background:#007BFF;}
 #messages{
   flex:1;
   overflow-y:auto;
+  width:100%;
   padding:10px;
-  background:#e5e5e5;
+  background:rgba(240,240,240,0.8);
+  display:flex;
+  flex-direction:column;
 }
 
-.message{display:flex;width:100%;margin:6px 0}
-.sender{justify-content:flex-end}
-.receiver{justify-content:flex-start}
+.message{display:flex;width:100%;margin:5px 0;}
+.sender{justify-content:flex-end;}
+.receiver{justify-content:flex-start;}
 
 .bubble{
+  padding:10px;
+  border-radius:20px;
+  word-wrap:break-word;
+  font-size:16px;
   max-width:70%;
-  padding:10px 12px;
-  border-radius:18px;
-  font-size:15px;
-  position:relative;
-}
-.sender .bubble{background:#dcf8c6;border-bottom-right-radius:0}
-.receiver .bubble{background:#fff;border-bottom-left-radius:0}
-
-.meta{
-  font-size:11px;
-  color:#555;
-  text-align:right;
-  margin-top:4px;
 }
 
-.controls{
-  display:flex;
-  padding:8px;
-  background:#fff;
-}
-#msg{flex:1;padding:10px;border-radius:20px;border:1px solid #ccc}
-button{margin-left:6px;border-radius:20px;padding:10px}
+.sender .bubble{background:#dcf8c6;border-top-right-radius:0;}
+.receiver .bubble{background:#ffb6c1;border-top-left-radius:0;}
 
-audio{width:100%;margin-top:5px}
+.avatar-circle{
+  width:35px;height:35px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:bold;margin:0 5px;background:#fff;
+}
+
+#chat-controls{display:flex;justify-content:center;width:95%;max-width:600px;margin-bottom:10px;}
+#msg{flex:1;padding:10px;font-size:16px;border-radius:20px;border:1px solid #ccc;}
+#recordBtn,#sendBtn{padding:10px;font-size:16px;margin-left:5px;border-radius:20px;}
+
+audio{display:block;margin-top:5px;max-width:100%;border-radius:10px;}
+.meta{font-size:11px;color:#555;text-align:right;margin-top:4px;}
 </style>
 </head>
 
 <body>
 
+<!-- LOGIN -->
 <div id="login">
   <h2>Private Login</h2>
-  <input id="name" placeholder="Your name">
-  <input id="pin" type="password" placeholder="PIN">
+  <input id="name" placeholder="Your Name (Mandatory)">
+  <input id="pin" placeholder="Enter PIN" type="password">
   <button onclick="login()">Login</button>
 </div>
 
+<!-- CHAT -->
 <div id="chat">
   <div id="messages"></div>
-  <div class="controls">
-    <input id="msg" placeholder="Type message" onkeydown="if(event.key==='Enter')sendText()">
-    <button onclick="sendText()">Send</button>
-    <button id="recBtn">🎤</button>
+  <div id="chat-controls">
+    <input type="text" id="msg" placeholder="Type a message" onkeydown="if(event.key==='Enter'){sendMessage()}">
+    <button id="sendBtn" onclick="sendMessage()">Send</button>
+    <button id="recordBtn">🎤</button>
   </div>
 </div>
+
+<audio id="notifSound" src="https://www.soundjay.com/button/sounds/button-10.mp3" preload="auto"></audio>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
-/* ---------- FIREBASE ---------- */
+/* FIREBASE */
 firebase.initializeApp({
   apiKey: "AIzaSyB44cXr29RuwC95yI87FGn1lZnPVKMozRU",
   authDomain: "pvtapp-4d511.firebaseapp.com",
@@ -82,102 +87,109 @@ firebase.initializeApp({
 });
 const db = firebase.database();
 
-/* ---------- GLOBALS ---------- */
-const PIN="280999";
-let user="";
-let recorder, chunks=[];
-let recordStart=0;
+/* GLOBALS */
+const PIN = "280999";
+let currentUser = "";
+let mediaRecorder, audioChunks = [];
+const CHAT_KEY = "shared_chat";
 
-/* ---------- LOGIN ---------- */
+/* LOGIN (UNCHANGED) */
 function login(){
-  if(pin.value!==PIN||!name.value)return alert("Invalid login");
-  user=name.value.trim();
-  login.style.display="none";
-  chat.style.display="flex";
-  listen();
+  const n = name.value.trim();
+  const p = pin.value.trim();
+  if(n === "" || p === "") return alert("Enter name and PIN");
+  if(p !== PIN) return alert("Wrong PIN");
+
+  currentUser = n;
+  login.style.display = "none";
+  chat.style.display = "flex";
+  listenMessages();
 }
 
-/* ---------- SEND TEXT ---------- */
-function sendText(){
-  if(!msg.value.trim())return;
-  send({
-    type:"text",
-    content:msg.value.trim()
+/* ADD MESSAGE */
+function addMessage(msg, key){
+  const type = msg.user === currentUser ? "sender" : "receiver";
+
+  const div = document.createElement("div");
+  div.className = "message " + type;
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+
+  if(msg.type === "audio"){
+    const audio = document.createElement("audio");
+    audio.src = msg.content;
+    audio.controls = true;
+    bubble.appendChild(audio);
+  } else {
+    bubble.textContent = msg.content;
+  }
+
+  const meta = document.createElement("div");
+  const time = new Date(msg.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  let seen = "";
+  if(type === "sender"){
+    seen = msg.seenBy && Object.keys(msg.seenBy).length > 1 ? " ✔✔" : " ✔";
+  }
+  meta.className = "meta";
+  meta.textContent = time + seen;
+
+  bubble.appendChild(meta);
+  div.appendChild(bubble);
+  messages.appendChild(div);
+  messages.scrollTop = messages.scrollHeight;
+
+  if(type === "receiver"){
+    notifSound.play();
+    db.ref(CHAT_KEY + "/" + key + "/seenBy/" + currentUser).set(true);
+  }
+}
+
+/* SEND TEXT */
+function sendMessage(){
+  if(!msg.value.trim()) return;
+  db.ref(CHAT_KEY).push({
+    user: currentUser,
+    type: "text",
+    content: msg.value,
+    timestamp: Date.now(),
+    seenBy: {[currentUser]: true}
   });
-  msg.value="";
+  msg.value = "";
 }
 
-/* ---------- SEND MESSAGE ---------- */
-function send(data){
-  db.ref("chat").push({
-    user,
-    ...data,
-    timestamp:Date.now(),
-    seenBy:{[user]:true}
-  });
-}
-
-/* ---------- AUDIO RECORD ---------- */
-recBtn.onclick=async()=>{
-  if(!recorder||recorder.state==="inactive"){
-    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
-    recorder=new MediaRecorder(stream);
-    chunks=[];
-    recordStart=Date.now();
-    recBtn.textContent="⏹";
-    recorder.ondataavailable=e=>chunks.push(e.data);
-    recorder.onstop=()=>{
-      const blob=new Blob(chunks,{type:"audio/webm"});
-      const r=new FileReader();
-      r.onload=()=>send({
-        type:"audio",
-        content:r.result,
-        duration:Math.round((Date.now()-recordStart)/1000)
-      });
-      r.readAsDataURL(blob);
-      recBtn.textContent="🎤";
+/* AUDIO RECORD (UNCHANGED LOGIC) */
+recordBtn.onclick = async () => {
+  if(!mediaRecorder || mediaRecorder.state === "inactive"){
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    mediaRecorder = new MediaRecorder(stream);
+    audioChunks = [];
+    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(audioChunks,{type:"audio/webm"});
+      const reader = new FileReader();
+      reader.onload = () => {
+        db.ref(CHAT_KEY).push({
+          user: currentUser,
+          type: "audio",
+          content: reader.result,
+          timestamp: Date.now(),
+          seenBy:{[currentUser]:true}
+        });
+      };
+      reader.readAsDataURL(blob);
     };
-    recorder.start();
-  }else recorder.stop();
+    mediaRecorder.start();
+  } else {
+    mediaRecorder.stop();
+  }
 };
 
-/* ---------- LISTEN ---------- */
-function listen(){
-  db.ref("chat").on("child_added",snap=>{
-    const m=snap.val();
-    const id=snap.key;
-    show(m,id);
-    if(m.user!==user){
-      db.ref(`chat/${id}/seenBy/${user}`).set(true);
-    }
+/* LISTEN */
+function listenMessages(){
+  db.ref(CHAT_KEY).on("child_added", snap=>{
+    addMessage(snap.val(), snap.key);
   });
-}
-
-/* ---------- SHOW MESSAGE ---------- */
-function show(m,id){
-  const div=document.createElement("div");
-  div.className="message "+(m.user===user?"sender":"receiver");
-
-  const b=document.createElement("div");
-  b.className="bubble";
-
-  if(m.type==="audio"){
-    const a=document.createElement("audio");
-    a.src=m.content;
-    a.controls=true;
-    b.appendChild(a);
-  }else b.textContent=m.content;
-
-  const meta=document.createElement("div");
-  const time=new Date(m.timestamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-  const seen=m.user===user && Object.keys(m.seenBy||{}).length>1 ? "✔✔":"✔";
-  meta.className="meta";
-  meta.textContent=time+" "+(m.user===user?seen:"");
-
-  b.appendChild(meta);
-  div.appendChild(b);
-  messages.appendChild(div);
-  messages.scrollTop=messages.scrollHeight;
 }
 </script>
 </body>
