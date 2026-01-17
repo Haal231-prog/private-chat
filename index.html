@@ -57,9 +57,12 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
-
-const PIN="280999", CHAT_KEY="shared_chat";
-let currentUser="", mediaRecorder, audioChunks=[], replyContext=null;
+  
+  / ===== GLOBALS =====
+const PIN = "280999";
+let currentUser = "",mediaRecorder, audioChunks = []replyContext=null;
+let lastActivity = Date.now();
+const CHAT_KEY = "shared_chat";
 
 // LOGIN
 function login(){
